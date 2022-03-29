@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AliExpress Order Detail Exporter
 // @namespace    http://tampermonkey.net/
-// @version      1.0
+// @version      1
 // @description  Export AliExpress order details via the clipboard into csv format
 // @author       Chris Komus
 // @match        https://www.aliexpress.com/p/order/detail.html*
@@ -37,9 +37,6 @@ $(document).ready(function() {
     }, 2000);
 
     setTimeout(function() {
-        // Testing
-        // console.log(order);
-
         // Display Buttons
         displayContent();
     }, 3000);
@@ -180,6 +177,7 @@ function displayContent() {
         class: 'comet-btn',
         click: function () {
             $('#csvBtn').text('Loading...');
+            // Promise.all(reqs).then(o =>{
                 var s = '';
                 items.forEach(e=> {
                     s += e.order.orderId + '\t';
@@ -193,6 +191,8 @@ function displayContent() {
                     s += e.order.trackingStatus + '\t';
                     s += e.order.trackingStatusDate + '\t';
                     s += e.order.trackingUrl + '\t';
+                    // s += e.productTitle + '\t';
+                    // s += e.productOption + '\t';
                     s += "\"" + e.productTitle + "\"\t";
                     s += "\"" + e.productOption + "\"\t";
                     s += e.productPrice + '\t';
@@ -208,6 +208,7 @@ function displayContent() {
                 console.log(s);
                 GM_setClipboard (s);
                 $('#csvBtn').text('Copied');
+            // });
         }
     }).insertBefore('.order-block-title');
 
@@ -217,6 +218,7 @@ function displayContent() {
         class: 'comet-btn',
         click: function () {
             $('#headerBtn').text('Copied');
+            // Promise.all(reqs).then(o =>{
                 var h = '';
                 {
                     h += 'Order Number' + '\t';
@@ -242,6 +244,7 @@ function displayContent() {
                 };
                 GM_setClipboard (h);
                 $('#headerBtn').text('Copied');
+            // });
         }
     }).insertBefore('.order-block-title');
 }

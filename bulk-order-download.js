@@ -1,12 +1,12 @@
 // ==UserScript==
 // @name         AliExpress Bulk Order Exporter
 // @namespace    http://tampermonkey.net/
-// @version      1.0
+// @version      1
 // @description  Show tracking info, and bulk export tab delimited AliExpress orders into the Clipboard.
 // @author       Chris Komus
 // @match        https://www.aliexpress.com/p/order/index.html
 // @grant        GM_setClipboard
-// @require      https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js
+// @require      http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js
 // @require      https://www.17track.net/externalcall.js
 // @run-at       document-idle
 // ==/UserScript==
@@ -21,6 +21,7 @@
 // ie: "10pcs Widgets" will have 10 pieces per item, whereas "2pcs Ear Pads" will have 1 piece per item.
 var exclusions = ['earpad', 'ear pad'];
 
+var dateStringLocale = 'en-US';
 
 // AliExpress Bulk Order Exporter
 // -------------------------------
@@ -31,8 +32,13 @@ var trackingNumbers = [];
 var ordersWithTracking = [];
 
 $(document).ready(function() {
-    refreshData();
-    displayButtons();
+    setTimeout(function() {
+        displayButtons();
+    }, 1500);
+
+    setTimeout(function() {
+        refreshData();
+    }, 1500);
 });
 
 function refreshData() {
@@ -42,15 +48,11 @@ function refreshData() {
     trackingNumbers = [];
     ordersWithTracking = [];
 
-    setTimeout(function() {
-        getTrackingNumbers();
-        getOrderData();
-    }, 1000);
+    getTrackingNumbers();
+    getOrderData();
 
-    setTimeout(function() {
-        ordersWithTracking = mergeArrays(orders, trackingNumbers, "orderId");
-        displayTrackingNumbers();
-    }, 1500);
+    // displayTrackingNumbers();
+    ordersWithTracking = mergeArrays(orders, trackingNumbers, "orderId");
 }
 
 function getDate(txt)
@@ -65,10 +67,11 @@ function getDate(txt)
                         txt.substring(txt.indexOf(' ')+1,txt.indexOf(",")),
                         0,0,0,0);
 
-    return date.toLocaleDateString(undefined, options);
+    return date.toLocaleDateString(dateStringLocale, options);
 }
 
 function getTrackingNumbers() {
+    trackingNumbers = [];
     $(".order-item").each((ind, eo)=>{
         let orderId = $(eo).find(".order-item-header-right-info").text().trim().substring(
                       $(eo).find(".order-item-header-right-info").text().trim().indexOf("ID: ") + 4,
@@ -98,12 +101,19 @@ function getTrackingNumbers() {
                 order.trackingNumberFromLogistics = data.tracking[0].mailNo;
                 order.trackingUrl = 'https://t.17track.net/en#nums='+order.trackingNumber;
                 order.trackingStatus = data.tracking[0].keyDesc;
-                let trackDate = new Date(data.tracking[0].traceList[0].eventTime);
-                order.trackingStatusDate = trackDate.getMonth()+1 + '/' + trackDate.getDate() + '/' + trackDate.getFullYear();
+                if (data.tracking[0].tracelist) {
+                    let trackDate = new Date(data.tracking[0].traceList[0].eventTime);
+                    order.trackingStatusDate = trackDate.getMonth()+1 + '/' + trackDate.getDate() + '/' + trackDate.getFullYear();
+                }
+                else {
+                    order.trackingStatusDate = '';
+                }
                 trackingNumbers.push(order);
             };
         }
     });
+    // console.log(trackingNumbers);
+    // console.log(orders);
 }
 
 function getOrderData() {
@@ -123,18 +133,12 @@ function getOrderData() {
         order.storeName =    $(eo).find(".order-item-store-name").text().trim();
         order.subtotal =       $(eo).find(".order-item-content-opt-price-total").text().split('Total:').pop().replace(/[^\d.-]/g, '');
         order.shippingAndTax = (order.total - order.subtotal).toFixed(2);
-        order.orderStatus =    $(".order-block-title").text().trim();
+        order.orderStatus =    $(eo).find(".order-item-header-status-text").text().trim();
 
         orders.push(order);
 
-        // Testing
-        // console.log(order);
-
         // Products
         getProductData(order, eo);
-
-        // Append To Page
-        // displayOrderContent(order, eo);
     });
 }
 
@@ -151,18 +155,17 @@ function getProductData(order, eo) {
             // let productPcsPerPack = getPiecesPerPack([productTitle, productOption], exclusions);
 
             let product = {
-                // productTitle:       productTitle,
-                // productOption:      productOption,
-                // productPrice:       productPrice,
-                // productQuantity:    productQuantity,
-                // productPcsPerPack:  productPcsPerPack,
-                // productTotalQty:    productQuantity * productPcsPerPack,
-                // productLandedCost:  ((((productPrice * productQuantity) / order.subtotal).toFixed(2) * order.total) / (productQuantity * productPcsPerPack)),
-                productUrl:         "https:" + $(ep).find("a").attr('href'),
-                // productImageUrl:    $(ep).find(".order-item-content-img").css('background-image').replace('url(','').replace(')','').replace(/\"/gi, ""),
+                productTitle:       '',
+                productOption:      '',
+                productPrice:       '',
+                productQuantity:    '',
+                productPcsPerPack:  '',
+                productTotalQty:    '',
+                productLandedCost:  '',
+                productUrl:         "https:" + $(ep).parent().attr('href'),
+                productImageUrl:    $(ep).css('background-image').replace('url(','').replace(')','').replace(/\"/gi, ""),
                 order:             order,
             };
-            console.log(product);
             products.push(product);
             items.push(product);
         });
@@ -188,7 +191,6 @@ function getProductData(order, eo) {
                 productImageUrl:    $(ep).find(".order-item-content-img").css('background-image').replace('url(','').replace(')','').replace(/\"/gi, ""),
                 order:             order,
             };
-            console.log(product);
             products.push(product);
             items.push(product);
         });
@@ -256,15 +258,13 @@ function copyHeadersToClipboard() {
     {
         h += "Order Number" + "\t";
         h += "Order Date" + "\t";
-        h += "Subtotal" + "\t";
-        h += "Shipping and Tax" + "\t";
-        h += "Total Order Amount" + "\t";
+        h += "Total" + "\t";
         h += "Store Name" + "\t";
         h += "Order Status" + "\t";
-        h += "Tracking Number" + "\t";
-        h += "Tracking Status" + "\t";
-        h += "Tracking Status Last Updated" + "\t";
-        h += "Tracking Link" + "\t";
+        // h += "Tracking Number" + "\t";
+        // h += "Tracking Status" + "\t";
+        // h += "Tracking Status Last Updated" + "\t";
+        // h += "Tracking Link" + "\t";
         h += "Product Title" + "\t";
         h += "Option" + "\t";
         h += "Price" + "\t";
@@ -287,15 +287,13 @@ function copyOrdersToClipboard() {
 
         s += e.order.orderId + "\t";
         s += order.dateString + "\t";
-        s += e.order.subtotal + "\t";
-        s += e.order.shippingAndTax + "\t";
         s += e.order.total + "\t";
         s += e.order.storeName + "\t";
         s += e.order.orderStatus + "\t";
-        s += order.trackingNumber + "\t";
-        s += order.trackingStatus + "\t";
-        s += order.trackingStatusDate + "\t";
-        s += order.trackingUrl + "\t";
+        // s += order.trackingNumber + "\t";
+        // s += order.trackingStatus + "\t";
+        // s += order.trackingStatusDate + "\t";
+        // s += order.trackingUrl + "\t";
         s += "\"" + e.productTitle + "\"\t";
         s += "\"" + e.productOption + "\"\t";
         s += e.productPrice + "\t";
@@ -307,7 +305,6 @@ function copyOrdersToClipboard() {
         s += "\"" + e.productImageUrl + "\"\t";
         s += "\n";
     });
-    console.log(items);
     GM_setClipboard (s);
     $("#csvBtn").text("Copied");
 }
@@ -315,40 +312,48 @@ function copyOrdersToClipboard() {
 function displayButtons() {
     $('<div/>',{class:'order-header', id:'added-buttons'}).insertAfter('.order-form');
 
-    $('<button/>', {
-        text: "Show Tracking Numbers/Rescan Orders",
-        id: 'headerBtn',
-        class: 'comet-btn',
-        click: function () {
-            refreshData();
-        }
-    }).insertAfter("#added-buttons");
+// To Be Added When Tracking Number Functionality Has Been Added
+//     $('<button/>', {
+//         text: "Show Tracking Numbers/Rescan Orders",
+//         id: 'headerBtn',
+//         class: 'comet-btn',
+//         click: function () {
+//             refreshData();
+//         }
+//     }).insertAfter("#added-buttons");
 
-    $('<button/>', {
-        text: "Show Tracking Numbers/Rescan Orders",
-        id: 'headerBtn',
-        class: 'comet-btn comet-btn-large comet-btn-borderless order-more',
-        style: 'margin: auto;',
-        click: function () {
-            refreshData();
-        }
-    }).insertAfter(".order-more");
-
-    $('<button/>', {
-        text: "Copy Orders To Clipboard",
-        id: 'csvBtn',
-        class: 'comet-btn',
-        click: function () {
-            copyOrdersToClipboard();
-        }
-    }).insertAfter("#added-buttons");
+//     $('<button/>', {
+//         text: "Show Tracking Numbers/Rescan Orders",
+//         id: 'headerBtn',
+//         class: 'comet-btn comet-btn-large comet-btn-borderless order-more',
+//         style: 'margin: auto;',
+//         click: function () {
+//             refreshData();
+//         }
+//     }).insertAfter(".order-more");
 
     $('<button/>', {
         text: "Copy Header Row",
         id: 'headerBtn',
         class: 'comet-btn',
+        style: 'margin-right: 15px;',
         click: function () {
-            copyHeadersToClipboard;
+            copyHeadersToClipboard();
         }
     }).insertAfter("#added-buttons");
+
+    $('<button/>', {
+        text: "Copy Orders To Clipboard",
+        id: 'csvBtn',
+        class: 'comet-btn',
+        style: 'margin-right: 15px;',
+        click: function () {
+            refreshData();
+            setTimeout(function() {
+                copyOrdersToClipboard();
+            }, 500);
+        }
+    }).insertAfter("#added-buttons");
+
+
 }
