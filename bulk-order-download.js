@@ -55,7 +55,7 @@ function refreshData() {
     ordersWithTracking = mergeArrays(orders, trackingNumbers, "orderId");
 }
 
-function getDate(txt)
+function convertDate(txt)
 {
     // Convert 'Mon D, YYYY' string into Date format
     const options = { weekday: undefined, year: 'numeric',
@@ -73,9 +73,13 @@ function getDate(txt)
 function getTrackingNumbers() {
     trackingNumbers = [];
     $(".order-item").each((ind, eo)=>{
-        let orderId = $(eo).find(".order-item-header-right-info").text().trim().substring(
-                      $(eo).find(".order-item-header-right-info").text().trim().indexOf("ID: ") + 4,
-                      $(eo).find(".order-item-header-right-info").text().trim().lastIndexOf("Copy")).trim();
+        let rawOrder = $(eo).find(".order-item-header-right-info").find("div").eq(1).html().trim();
+        let orderId =  rawOrder.substring(rawOrder.indexOf(": ") + 2,
+                       rawOrder.lastIndexOf("<span")).trim();
+
+        // let orderId = $(eo).find(".order-item-header-right-info").text().trim().substring(
+        //               $(eo).find(".order-item-header-right-info").text().trim().indexOf("ID: ") + 4,
+        //               $(eo).find(".order-item-header-right-info").text().trim().lastIndexOf("Copy")).trim();
 
         // Tracking Information
         if ($(eo).find('.comet-btn').length === 0) {
@@ -101,34 +105,32 @@ function getTrackingNumbers() {
                 order.trackingNumberFromLogistics = data.tracking[0].mailNo;
                 order.trackingUrl = 'https://t.17track.net/en#nums='+order.trackingNumber;
                 order.trackingStatus = data.tracking[0].keyDesc;
-                if (data.tracking[0].tracelist) {
-                    let trackDate = new Date(data.tracking[0].traceList[0].eventTime);
+                let trackDate = new Date(data.tracking[0].traceList[0].eventTime);
+                try {
                     order.trackingStatusDate = trackDate.getMonth()+1 + '/' + trackDate.getDate() + '/' + trackDate.getFullYear();
+                    trackingNumbers.push(order);
+                } catch (error) {
+                    // no tracking update date available.
                 }
-                else {
-                    order.trackingStatusDate = '';
-                }
-                trackingNumbers.push(order);
+
             };
         }
     });
-    // console.log(trackingNumbers);
-    // console.log(orders);
+    console.log(trackingNumbers);
+    console.log(orders);
 }
 
 function getOrderData() {
     $(".order-item").each((ind, eo)=>{
         let order = {};
-        let orderDateAndId = $(eo).find(".order-item-header-right-info").text().trim();
+        let rawDate = $(eo).find(".order-item-header-right-info").find("div").eq(0).text().trim();
+        let rawOrder = $(eo).find(".order-item-header-right-info").find("div").eq(1).html().trim();
 
-        order.orderId =      orderDateAndId.substring(
-                             orderDateAndId.indexOf("ID: ") + 4,
-                             orderDateAndId.lastIndexOf("Copy")).trim();
-        order.date =         new Date (orderDateAndId.substring(
-                             orderDateAndId.indexOf("date: ") + 6,
-                             orderDateAndId.lastIndexOf("Order ID")));
+        order.orderId =      rawOrder.substring(rawOrder.indexOf(": ") + 2,
+                             rawOrder.lastIndexOf("<span")).trim();
+        order.date =         new Date (rawDate.substring(
+                             rawDate.indexOf(": ") + 2));
         order.dateString =   order.date.getMonth()+1 + '/' + order.date.getDate() + '/' + order.date.getFullYear();
-
         order.total =        $(eo).find(".order-item-content-opt-price-total").text().split('Total:').pop().replace(/[^\d.-]/g, '');
         order.storeName =    $(eo).find(".order-item-store-name").text().trim();
         order.subtotal =       $(eo).find(".order-item-content-opt-price-total").text().split('Total:').pop().replace(/[^\d.-]/g, '');
@@ -242,9 +244,9 @@ function mergeArrays(arrayOne, arrayTwo) {
 
 function displayTrackingNumbers() {
     $(".order-item").each((ind, eo)=>{
-        var orderId = $(eo).find(".order-item-header-right-info").text().trim().substring(
-                      $(eo).find(".order-item-header-right-info").text().trim().indexOf("ID: ") + 4,
-                      $(eo).find(".order-item-header-right-info").text().trim().lastIndexOf("Copy")).trim();
+        let rawOrder = $(eo).find(".order-item-header-right-info").find("div").eq(1).html().trim();
+        let orderId =  rawOrder.substring(rawOrder.indexOf(": ") + 2,
+                       rawOrder.lastIndexOf("<span")).trim();
 
         let order = ordersWithTracking.find(o => o.orderId === orderId);
 
