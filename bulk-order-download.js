@@ -8,6 +8,7 @@
 // @grant        GM_setClipboard
 // @require      http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js
 // @require      https://www.17track.net/externalcall.js
+// @require      https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js
 // @run-at       document-idle
 // ==/UserScript==
 
@@ -108,10 +109,10 @@ function getTrackingNumbers() {
                 let trackDate = new Date(data.tracking[0].traceList[0].eventTime);
                 try {
                     order.trackingStatusDate = trackDate.getMonth()+1 + '/' + trackDate.getDate() + '/' + trackDate.getFullYear();
-                    trackingNumbers.push(order);
                 } catch (error) {
                     // no tracking update date available.
                 }
+                trackingNumbers.push(order);
 
             };
         }
@@ -125,11 +126,12 @@ function getOrderData() {
         let order = {};
         let rawDate = $(eo).find(".order-item-header-right-info").find("div").eq(0).text().trim();
         let rawOrder = $(eo).find(".order-item-header-right-info").find("div").eq(1).html().trim();
+        rawDate = rawDate.substring(rawDate.indexOf(": ") + 2);
 
         order.orderId =      rawOrder.substring(rawOrder.indexOf(": ") + 2,
                              rawOrder.lastIndexOf("<span")).trim();
-        order.date =         new Date (rawDate.substring(
-                             rawDate.indexOf(": ") + 2));
+        // order.date =         new Date (rawDate);
+        order.date =         moment(rawDate, ["MMM D, YYYY", "D MMM, YYYY", "MMM DD, YYYY", "DD MMM, YYYY"]).toDate();
         order.dateString =   order.date.getMonth()+1 + '/' + order.date.getDate() + '/' + order.date.getFullYear();
         order.total =        $(eo).find(".order-item-content-opt-price-total").text().split('Total:').pop().replace(/[^\d.-]/g, '');
         order.storeName =    $(eo).find(".order-item-store-name").text().trim();
